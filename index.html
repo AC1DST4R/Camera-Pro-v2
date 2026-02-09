@@ -1,77 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Photo Utility Pro</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo Utility Pro</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>📸 Photo Utility Pro</h1>
+<h1>📸 Photo Utility Pro</h1>
 
-  <div class="dropzone">
-    Drag & Drop Images Here or
-    <input type="file" id="fileInput" accept="image/*" multiple>
+<div class="dropzone">
+  Drag & Drop Images Here or
+  <input type="file" id="fileInput" accept="image/*" multiple>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="camera">Camera</button>
+  <button class="tab" data-tab="edit">Edit</button>
+  <button class="tab" data-tab="effects">Effects</button>
+  <button class="tab" data-tab="export">Export</button>
+  <button class="tab" data-tab="gallery">Gallery</button>
+</div>
+
+<!-- Editor Area: Settings + Canvas -->
+<div id="editorArea">
+  <div class="controls tab-panel" id="edit" style="display:block">
+    <label>Width <input type="number" id="widthInput"></label>
+    <label>Height <input type="number" id="heightInput"></label>
   </div>
 
+  <div class="controls tab-panel" id="effects" style="display:none">
+    <label>Deep Fry <input type="range" min="0" max="100" value="0" id="fryInput"></label>
+    <button id="removeBgBtn">Remove Background</button>
+  </div>
+
+  <div class="controls tab-panel" id="export" style="display:none">
+    <label>Quality <input type="range" min="0" max="1" step="0.05" value="0.9" id="qualityInput"></label>
+    <label>Format
+      <select id="formatSelect">
+        <option value="image/png">PNG</option>
+        <option value="image/jpeg">JPEG</option>
+        <option value="image/webp">WEBP</option>
+      </select>
+    </label>
+    <button id="downloadBtn">Download</button>
+  </div>
+
+  <canvas id="canvas"></canvas>
+</div>
+
+<!-- Camera Tab -->
+<div class="tab-panel" id="camera" style="display:none">
   <div class="tabs">
-    <button class="tab active" data-tab="camera">Camera</button>
-    <button class="tab" data-tab="edit">Edit</button>
-    <button class="tab" data-tab="effects">Effects</button>
-    <button class="tab" data-tab="export">Export</button>
-    <button class="tab" data-tab="gallery">Gallery</button>
+    <button class="tab subtab active" data-subtab="photo">Photo</button>
+    <button class="tab subtab" data-subtab="record">Record</button>
   </div>
 
-  <!-- Settings above photo -->
-  <div id="editorArea">
-    <div class="controls tab-panel" id="edit" style="display:block">
-      <label>Width <input type="number" id="widthInput"></label>
-      <label>Height <input type="number" id="heightInput"></label>
-    </div>
-    <div class="controls tab-panel" id="effects" style="display:none">
-      <label>Deep Fry <input type="range" min="0" max="100" value="0" id="fryInput"></label>
-      <button id="removeBgBtn">Remove Background</button>
-    </div>
-    <div class="controls tab-panel" id="export" style="display:none">
-      <label>Quality <input type="range" min="0" max="1" step="0.05" value="0.9" id="qualityInput"></label>
-      <label>Format
-        <select id="formatSelect">
-          <option value="image/png">PNG</option>
-          <option value="image/jpeg">JPEG</option>
-          <option value="image/webp">WEBP</option>
-        </select>
-      </label>
-      <button id="downloadBtn">Download</button>
-    </div>
-
-    <canvas id="canvas"></canvas>
+  <div class="controls subtab-panel" id="photo" style="display:block">
+    <button id="startCam">Start Camera</button>
+    <button id="snap">Take Photo</button>
+    <video id="video" autoplay muted></video>
   </div>
 
-  <!-- Camera Tab -->
-  <div class="tab-panel" id="camera" style="display:none">
-    <div class="tabs">
-      <button class="tab subtab active" data-subtab="photo">Photo</button>
-      <button class="tab subtab" data-subtab="record">Record</button>
-    </div>
-
-    <div class="controls subtab-panel" id="photo" style="display:block">
-      <button id="startCam">Start Camera</button>
-      <button id="snap">Take Photo</button>
-      <video id="video" autoplay muted></video>
-    </div>
-
-    <div class="controls subtab-panel" id="record" style="display:none">
-      <button id="recordBtn">Start / Stop Recording</button>
-      <video id="recordPreview" autoplay muted></video>
-    </div>
+  <div class="controls subtab-panel" id="record" style="display:none">
+    <button id="recordBtn">Start / Stop Recording</button>
+    <video id="recordPreview" autoplay muted></video>
   </div>
+</div>
 
-  <!-- Gallery Tab -->
-  <div class="tab-panel" id="gallery" style="display:none">
-    <p class="hint">Temporary gallery (clears on refresh)</p>
-    <div class="gallery" id="galleryGrid"></div>
-  </div>
+<!-- Gallery Tab -->
+<div class="tab-panel" id="gallery" style="display:none">
+  <p class="hint">Temporary gallery (clears on refresh)</p>
+  <div class="gallery" id="galleryGrid"></div>
+</div>
 
-  <script src="script.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
