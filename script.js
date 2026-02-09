@@ -17,7 +17,7 @@ let original=null; // original image
 let current=null;  // working image
 let recorder,chunks=[],stream;
 
-// ===== TAB LOGIC =====
+// ===== TABS =====
 tabs.forEach(t => t.onclick = () => {
     tabs.forEach(b => b.classList.remove('active'));
     panels.forEach(p => p.style.display='none');
@@ -27,18 +27,14 @@ tabs.forEach(t => t.onclick = () => {
     panel.style.display = 'block';
 
     const editorArea = document.getElementById('editorArea');
-    if (t.dataset.tab === 'camera') {
-        editorArea.style.display = 'none';
-    } else {
-        editorArea.style.display = 'block';
-        if (current) draw(current);
-    }
+    editorArea.style.display = (t.dataset.tab==='camera')?'none':'block';
+
+    if(current && t.dataset.tab!=='camera') draw(current);
 });
 
 subtabs.forEach(t => t.onclick = () => {
     subtabs.forEach(b => b.classList.remove('active'));
     subpanels.forEach(p => p.style.display='none');
-
     t.classList.add('active');
     document.getElementById(t.dataset.subtab).style.display = 'block';
 });
@@ -63,21 +59,21 @@ function loadImage(src){
 }
 
 function addToGallery(src){
-    const i = document.createElement('img');
-    i.src = src;
-    i.onclick = () => {
+    const i=document.createElement('img');
+    i.src=src;
+    i.onclick=()=>{ 
         document.querySelectorAll('.gallery img').forEach(e=>e.classList.remove('active'));
         i.classList.add('active');
         loadImage(src);
     };
-    // Auto-select
+    // Auto select first image
     document.querySelectorAll('.gallery img').forEach(e=>e.classList.remove('active'));
     i.classList.add('active');
     galleryGrid.appendChild(i);
     loadImage(src);
 }
 
-// Auto load uploaded files
+// ===== FILE UPLOAD =====
 fileInput.onchange = e => [...e.target.files].forEach(f=>{
     const r = new FileReader();
     r.onload = ()=> addToGallery(r.result);
@@ -92,12 +88,14 @@ function applyLive(){
     canvas.height = +heightInput.value||img.height;
     ctx.drawImage(img,0,0,canvas.width,canvas.height);
     if(+fryInput.value) deepFry(+fryInput.value);
+    current = new Image();
+    current.src = canvas.toDataURL(); // Update current with applied effects
 }
 
 widthInput.oninput = heightInput.oninput = fryInput.oninput = applyLive;
 
 function deepFry(amount){
-    const d = ctx.getImageData(0,0,canvas.width,canvas.height);
+    const d=ctx.getImageData(0,0,canvas.width,canvas.height);
     for(let i=0;i<d.data.length;i+=4){
         d.data[i]*=1+amount/40;
         d.data[i+1]*=1+amount/80;
@@ -106,17 +104,17 @@ function deepFry(amount){
     ctx.putImageData(d,0,0);
 }
 
-// ===== remove.bg =====
+// ===== REMOVE.BG =====
 removeBgBtn.onclick = async () => {
     if(!current) return alert('No image loaded');
     const blob = await (await fetch(canvas.toDataURL())).blob();
     const fd = new FormData();
     fd.append('image_file', blob);
-    fd.append('size', 'auto');
+    fd.append('size','auto');
     const res = await fetch('https://api.remove.bg/v1.0/removebg',{
         method:'POST',
         headers:{'X-Api-Key':REMOVEBG_API_KEY},
-        body:fd
+        body: fd
     });
     if(!res.ok) return alert('remove.bg failed');
     const out = URL.createObjectURL(await res.blob());
@@ -127,8 +125,7 @@ removeBgBtn.onclick = async () => {
 // ===== EXPORT =====
 downloadBtn.onclick = () => {
     if(!current) return;
-    // Apply live effects before exporting
-    applyLive();
+    applyLive(); // ensure latest effects are applied
     const a = document.createElement('a');
     const type = formatSelect.value;
     a.download = 'image.'+type.split('/')[1];
@@ -143,11 +140,11 @@ startCam.onclick = async () => {
     recordPreview.srcObject = stream;
 
     recorder = new MediaRecorder(stream);
-    recorder.ondataavailable = e => chunks.push(e.data);
-    recorder.onstop = () => {
+    recorder.ondataavailable = e=>chunks.push(e.data);
+    recorder.onstop = ()=>{ 
         addToGallery(URL.createObjectURL(new Blob(chunks,{type:'video/webm'})));
-        chunks = [];
-    };
+        chunks=[];
+    }
 }
 
 snap.onclick = () => {
@@ -159,4 +156,7 @@ snap.onclick = () => {
     loadImage(url);
 }
 
-recordBtn.onclick = () => { if(recorder) recorder.state==='recording'?recorder.stop():recorder.start(); }
+recordBtn.onclick = () => {
+    if(!recorder) return;
+    recorder.state==='recording'?recorder.stop():recorder.start();
+}
