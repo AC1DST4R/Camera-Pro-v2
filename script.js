@@ -126,6 +126,9 @@ removeBgBtn.onclick = async () => {
 
 // ===== EXPORT =====
 downloadBtn.onclick = () => {
+    if(!current) return;
+    // Apply live effects before exporting
+    applyLive();
     const a = document.createElement('a');
     const type = formatSelect.value;
     a.download = 'image.'+type.split('/')[1];
