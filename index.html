@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Photo Utility Pro</title>
+  <style>
+body { font-family: system-ui, sans-serif; background:#0f0f0f; color:#eee; margin:0; padding:16px; }
+h1 { font-size:1.4rem; margin-bottom:12px; }
+.dropzone { border:2px dashed #555; padding:20px; border-radius:12px; text-align:center; margin-bottom:12px; }
+.tabs { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+.tab { padding:8px 14px; border-radius:12px; background:#222; color:#aaa; cursor:pointer; }
+.tab.active { background:#4af; color:#000; }
+.controls { display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:14px; }
+button, select, input { padding:8px; border-radius:10px; border:none; }
+canvas { max-width:100%; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.6); margin-bottom:14px; }
+.gallery { display:grid; grid-template-columns: repeat(auto-fill,80px); gap:10px; }
+.gallery img { width:80px; height:80px; object-fit:cover; border-radius:10px; cursor:pointer; opacity:.75; }
+.gallery img.active { outline:3px solid #4af; opacity:1; }
+video { max-width:100%; border-radius:14px; }
+.hint { font-size:.85rem; color:#888; }
+</style>
+</head>
+<body>
+<h1>📸 Photo Utility Pro</h1>
+
+<div class="dropzone">Drag & Drop Images Here or <input type="file" id="fileInput" accept="image/*" multiple></div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="edit">Edit</button>
+  <button class="tab" data-tab="effects">Effects</button>
+  <button class="tab" data-tab="export">Export</button>
+  <button class="tab" data-tab="gallery">Gallery</button>
+  <button class="tab" data-tab="camera">Camera</button>
+</div>
+
+<!-- EDIT TAB -->
+<div class="controls tab-panel" id="edit" style="display:block">
+  <label>Width <input type="number" id="widthInput"></label>
+  <label>Height <input type="number" id="heightInput"></label>
+  <button id="applyResize">Apply Resize</button>
+</div>
+
+<!-- EFFECTS TAB -->
+<div class="controls tab-panel" id="effects" style="display:none">
+  <label>Deep Fry <input type="range" min="0" max="100" value="0" id="fryInput"></label>
+  <button id="applyEffects">Apply Effects</button>
+  <button id="removeBgBtn">Remove Background</button>
+  <span class="hint">Uses remove.bg API (client-side)</span>
+</div>
+
+<!-- EXPORT TAB -->
+<div class="controls tab-panel" id="export" style="display:none">
+  <label>Quality <input type="range" min="0" max="1" step="0.05" value="0.9" id="qualityInput"></label>
+  <label>Format
+    <select id="formatSelect">
+      <option value="image/png">PNG (transparent)</option>
+      <option value="image/jpeg">JPEG</option>
+      <option value="image/webp">WEBP</option>
+    </select>
+  </label>
+  <button id="downloadBtn">Download</button>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<!-- GALLERY TAB -->
+<div class="tab-panel" id="gallery" style="display:none">
+  <p class="hint">Temporary gallery (clears on refresh)</p>
+  <div class="gallery" id="galleryGrid"></div>
+</div>
+
+<!-- CAMERA TAB -->
+<div class="tab-panel" id="camera" style="display:none">
+  <div class="tabs">
+    <button class="tab subtab active" data-subtab="photo">Photo</button>
+    <button class="tab subtab" data-subtab="record">Record</button>
+  </div>
+
+  <div class="controls subtab-panel" id="photo" style="display:block">
+    <button id="startCam">Start Camera</button>
+    <button id="snap">Take Photo</button>
+    <video id="video" autoplay muted></video>
+  </div>
+
+  <div class="controls subtab-panel" id="record" style="display:none">
+    <button id="recordBtn">Start / Stop Recording</button>
+    <video id="recordPreview" autoplay muted></video>
+  </div>
+</div>
+
+<script>
+/***** CONFIG *****/
+// API key injected at build time (GitHub Actions) or runtime
+const REMOVEBG_API_KEY = window.REMOVEBG_API_KEY || '__REMOVEBG_API_KEY__';
+
+/***** TABS *****/
+const tabs = document.querySelectorAll('.tab:not(.subtab)');
+const subtabs = document.querySelectorAll('.subtab');
+const panels = document.querySelectorAll('.tab-panel');
+const subpanels = document.querySelectorAll('.subtab-panel');
+
+tabs.forEach(t=>t.onclick=()=>{
+  tabs.forEach(b=>b.classList.remove('active'));
+  panels.forEach(p=>p.style.display='none');
+  t.classList.add('active');
+  document.getElementById(t.dataset.tab).style.display='block';
+});
+
+subtabs.forEach(t=>t.onclick=()=>{
+  subtabs.forEach(b=>b.classList.remove('active'));
+  subpanels.forEach(p=>p.style.display='none');
+  t.classList.add('active');
+  document.getElementById(t.dataset.subtab).style.display='block';
+});
+
+/***** CORE STATE *****/
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const galleryGrid = document.getElementById('galleryGrid');
+const video = document.getElementById('video');
+const recordPreview = document.getElementById('recordPreview');
+let current = null;
+let recorder, chunks = [];
+let stream;
+
+function loadImage(src){
+  const img = new Image();
+  img.onload = () => {
+    current = img;
+    canvas.width = img.width;
+    canvas.height = img.height;
+    widthInput.value = img.width;
+    heightInput.value = img.height;
+    ctx.drawImage(img,0,0);
+  };
+  img.src = src;
+}
+
+function addToGallery(src){
+  const i = document.createElement('img');
+  i.src = src;
+  i.onclick = ()=>{
+    document.querySelectorAll('.gallery img').forEach(e=>e.classList.remove('active'));
+    i.classList.add('active');
+    loadImage(src);
+  };
+  if(!galleryGrid.children.length) i.classList.add('active');
+  galleryGrid.appendChild(i);
+}
+
+fileInput.onchange = e => [...e.target.files].forEach(f=>{
+  const r=new FileReader();
+  r.onload=()=>addToGallery(r.result);
+  r.readAsDataURL(f);
+});
+
+/***** EDITING *****/
+applyResize.onclick=()=>{
+  if(!current) return;
+  canvas.width=+widthInput.value;
+  canvas.height=+heightInput.value;
+  ctx.drawImage(current,0,0,canvas.width,canvas.height);
+  current.src=canvas.toDataURL();
+};
+
+function deepFry(amount){
+  const d=ctx.getImageData(0,0,canvas.width,canvas.height);
+  for(let i=0;i<d.data.length;i+=4){
+    d.data[i]*=1+amount/40;
+    d.data[i+1]*=1+amount/80;
+    d.data[i+2]*=1+amount/20;
+  }
+  ctx.putImageData(d,0,0);
+}
+
+applyEffects.onclick=()=>{
+  if(!current) return;
+  deepFry(+fryInput.value);
+  current.src=canvas.toDataURL();
+};
+
+/***** REMOVE.BG *****/
+removeBgBtn.onclick = async () => {
+  if(!current) return alert('No image loaded');
+  const blob = await (await fetch(canvas.toDataURL())).blob();
+  const fd = new FormData();
+  fd.append('image_file', blob);
+  fd.append('size', 'auto');
+
+  const res = await fetch('https://api.remove.bg/v1.0/removebg',{
+    method:'POST',
+    headers:{'X-Api-Key': REMOVEBG_API_KEY},
+    body:fd
+  });
+
+  if(!res.ok) return alert('remove.bg failed');
+  const out = await res.blob();
+  const url = URL.createObjectURL(out);
+  loadImage(url);
+  addToGallery(url);
+};
+
+/***** EXPORT *****/
+downloadBtn.onclick=()=>{
+  const a=document.createElement('a');
+  const type=formatSelect.value;
+  a.download='image.'+type.split('/')[1];
+  a.href=canvas.toDataURL(type,+qualityInput.value);
+  a.click();
+};
+
+/***** CAMERA *****/
+startCam.onclick=async()=>{
+  stream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+  video.srcObject=stream;
+  recordPreview.srcObject=stream;
+
+  recorder=new MediaRecorder(stream);
+  recorder.ondataavailable=e=>chunks.push(e.data);
+  recorder.onstop=()=>{
+    const blob=new Blob(chunks,{type:'video/webm'});
+    chunks=[];
+    addToGallery(URL.createObjectURL(blob));
+  };
+};
+
+snap.onclick=()=>{
+  canvas.width=video.videoWidth;
+  canvas.height=video.videoHeight;
+  ctx.drawImage(video,0,0);
+  addToGallery(canvas.toDataURL('image/png'));
+};
+
+recordBtn.onclick=()=>{
+  if(!recorder) return;
+  recorder.state==='recording'?recorder.stop():recorder.start();
+};
+</script>
+</body>
+</html>
