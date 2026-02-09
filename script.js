@@ -13,28 +13,28 @@ const galleryGrid = document.getElementById('galleryGrid');
 const video = document.getElementById('video');
 const recordPreview = document.getElementById('recordPreview');
 
-let original=null; // original image
-let current=null;  // working image
-let recorder,chunks=[],stream;
+let original = null;
+let current = null;
+let recorder, chunks = [], stream;
 
 // ===== TABS =====
 tabs.forEach(t => t.onclick = () => {
     tabs.forEach(b => b.classList.remove('active'));
-    panels.forEach(p => p.style.display='none');
+    panels.forEach(p => p.style.display = 'none');
 
     t.classList.add('active');
     const panel = document.getElementById(t.dataset.tab);
     panel.style.display = 'block';
 
     const editorArea = document.getElementById('editorArea');
-    editorArea.style.display = (t.dataset.tab==='camera')?'none':'block';
+    editorArea.style.display = (t.dataset.tab === 'camera') ? 'none' : 'block';
 
-    if(current && t.dataset.tab!=='camera') draw(current);
+    if (current && t.dataset.tab !== 'camera') draw(current);
 });
 
 subtabs.forEach(t => t.onclick = () => {
     subtabs.forEach(b => b.classList.remove('active'));
-    subpanels.forEach(p => p.style.display='none');
+    subpanels.forEach(p => p.style.display = 'none');
     t.classList.add('active');
     document.getElementById(t.dataset.subtab).style.display = 'block';
 });
@@ -43,30 +43,30 @@ subtabs.forEach(t => t.onclick = () => {
 function draw(img){
     canvas.width = img.width;
     canvas.height = img.height;
-    ctx.drawImage(img,0,0);
+    ctx.drawImage(img, 0, 0);
 }
 
 function loadImage(src){
     const img = new Image();
     img.onload = () => {
         original = img;
-        current = img;
+        current = new Image();
+        current.src = img.src; // initial state
         widthInput.value = img.width;
         heightInput.value = img.height;
-        draw(img);
+        draw(current);
     };
     img.src = src;
 }
 
 function addToGallery(src){
-    const i=document.createElement('img');
-    i.src=src;
-    i.onclick=()=>{ 
+    const i = document.createElement('img');
+    i.src = src;
+    i.onclick = () => { 
         document.querySelectorAll('.gallery img').forEach(e=>e.classList.remove('active'));
         i.classList.add('active');
         loadImage(src);
     };
-    // Auto select first image
     document.querySelectorAll('.gallery img').forEach(e=>e.classList.remove('active'));
     i.classList.add('active');
     galleryGrid.appendChild(i);
@@ -83,19 +83,19 @@ fileInput.onchange = e => [...e.target.files].forEach(f=>{
 // ===== LIVE EFFECTS =====
 function applyLive(){
     if(!original) return;
-    const img = original;
-    canvas.width = +widthInput.value||img.width;
-    canvas.height = +heightInput.value||img.height;
-    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    canvas.width = +widthInput.value || original.width;
+    canvas.height = +heightInput.value || original.height;
+    ctx.drawImage(original, 0, 0, canvas.width, canvas.height);
     if(+fryInput.value) deepFry(+fryInput.value);
+    // save the current canvas state
     current = new Image();
-    current.src = canvas.toDataURL(); // Update current with applied effects
+    current.src = canvas.toDataURL();
 }
 
 widthInput.oninput = heightInput.oninput = fryInput.oninput = applyLive;
 
 function deepFry(amount){
-    const d=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const d = ctx.getImageData(0,0,canvas.width,canvas.height);
     for(let i=0;i<d.data.length;i+=4){
         d.data[i]*=1+amount/40;
         d.data[i+1]*=1+amount/80;
